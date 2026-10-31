@@ -258,6 +258,16 @@ class MigrationGraph(MSONable):
             else:
                 base_entries.append(ient)
 
+        # if no entry was migration_element-free, use the lowest-amount one as base
+        if not base_entries:
+            inserted_entries.sort(key=lambda e: e.composition[migration_element])
+            base_entries.append(inserted_entries.pop(0))
+        #for ient in entries:
+        #    if migration_element in ient.composition.elements:
+        #        inserted_entries.append(ient)
+        #    else:
+        #        base_entries.append(ient)
+
         if len(base_entries) == 0:
             logger.debug(
                 f"No base entries found among {[ient.composition.formula for ient in entries]}, "
@@ -277,8 +287,9 @@ class MigrationGraph(MSONable):
             inserted_entries=inserted_entries,
             migrating_ion_entry=migrating_ion_entry,
             **kwargs,
-        )
+        ) 
         res = []
+
         for group in l_base_and_inserted:
             all_sites = group["base"].copy().sites
             for isite in group["inserted"]:
@@ -363,6 +374,7 @@ class MigrationGraph(MSONable):
         """
         if cost_keys is None:
             cost_keys = ["hop_distance"]
+        
         for k, v in self.unique_hops.items():
             cost_val = np.prod([v[ik] for ik in cost_keys])
             self.add_data_to_similar_edges(k, {"cost": cost_val})
