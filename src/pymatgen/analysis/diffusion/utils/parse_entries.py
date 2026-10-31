@@ -80,6 +80,7 @@ def process_entries(
         SpacegroupAnalyzer(itr_base_ent.structure, symprec=symprec, angle_tolerance=angle_tol)
         for itr_base_ent in base_entries
     ]
+    # print([itr_base_ent.structure.get_space_group_info() for itr_base_ent in base_entries])
 
     entries_with_num_symmetry_ops = [
         (ient, len(all_sga[itr_ent].get_space_group_operations())) for itr_ent, ient in enumerate(base_entries)
@@ -92,6 +93,9 @@ def process_entries(
         key=lambda x: x[0].structure.num_sites,
         reverse=True,
     )
+
+    # print([(ient.formula, num_ops) for ient, num_ops in entries_with_num_symmetry_ops])
+    # structures and symmetry operations are correct
 
     results = []
 
@@ -109,10 +113,11 @@ def process_entries(
     for base_ent, _ in entries_with_num_symmetry_ops:
         # structure where the
         mapped_cell = base_ent.structure.copy()
+        # print(mapped_cell.get_space_group_info())
         for j_inserted in inserted_entries:
             inserted_sites_ = _meta_stable_sites(base_ent, j_inserted)
             mapped_cell.sites.extend(inserted_sites_)
-
+                
         struct_wo_sym_ops = _filter_and_merge(mapped_cell.get_sorted_structure())
         if struct_wo_sym_ops is None:
             logger.warning(
@@ -123,6 +128,7 @@ def process_entries(
             continue
 
         struct_sym = get_sym_migration_ion_sites(base_ent.structure, struct_wo_sym_ops, working_ion)
+
         results.append(
             {
                 "base": base_ent.structure,
@@ -149,12 +155,15 @@ def get_matched_structure_mapping(base: Structure, inserted: Structure, sm: Stru
         sc_m : supercell matrix to apply to s1 to get s2
         total-t : translation to apply on s1 * sc_m to get s2
     """
+    
+    print("matched", base.formula, inserted.formula)
     s1, s2 = sm._process_species([base, inserted])
     fu, _ = sm._get_supercell_size(s1, s2)
     try:
-        _val, _dist, sc_m, total_t, _mapping = sm._strict_match(s1, s2, fu=fu, s1_supercell=True)
-    except TypeError:
+            _val, _dist, sc_m, total_t, _mapping = sm._strict_match(s1, s2, fu=fu, s1_supercell=True)
+    except TypeError as e:
         return None
+
     sc = s1 * sc_m
     sc.lattice = Lattice.from_parameters(*sc.lattice.abc, *sc.lattice.angles, vesta=True)  # type: ignore
     return sc_m, total_t
@@ -184,7 +193,9 @@ def get_inserted_on_base(
     """
     mapped_result = get_matched_structure_mapping(base_ent.structure, inserted_ent.structure, sm)
     if mapped_result is None:
-        raise ValueError("Cannot obtain inverse mapping, consider lowering tolerances in StructureMatcher")
+        print("Cannot obtain inverse mapping, consider lowering tolerances in StructureMatcher")
+        return None
+       #raise ValueError("Cannot obtain inverse mapping, consider lowering tolerances in StructureMatcher")
 
     sc_m, total_t = mapped_result
     insertion_energy = get_insertion_energy(base_ent, inserted_ent, migrating_ion_entry)
